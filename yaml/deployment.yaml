@@ -1,0 +1,54 @@
+---
+kind: Deployment
+apiVersion: extensions/v1beta1
+metadata:
+  name: tis
+  namespace: jasmine-tis
+  labels:
+    k8s-app: tis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: tis
+  template:
+    metadata:
+      name: tis
+      creationTimestamp:
+      labels:
+        k8s-app: tis
+    spec:
+      volumes:
+      - configMap:
+          name: apache2-conf
+        name: apache2-conf
+      containers:
+      - name: jpmapi
+        image: gitlab.jasmine.com:5001/3bbhrd/tis/prod:GITLAB_IMAGE
+        volumeMounts:
+        - mountPath: /etc/apache2/sites-enabled/000-default.conf
+          name: apache2-conf
+          subPath: 000-default.conf
+
+        resources: {}
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: false
+      restartPolicy: Always
+      dnsPolicy: ClusterFirst
+      securityContext: {}
+      imagePullSecrets:
+      - name: regitlab
+      hostAliases:
+      - ip: 10.2.0.30
+        hostnames:
+        - api.jasmine.com
+      - ip: 10.2.0.30
+        hostnames:
+        - app.jasmine.com
+      - ip: 10.2.0.15
+        hostnames:
+        - intranet.jasmine.com
+      - ip: 10.2.0.2
+        hostnames:
+        - smtp.jasmine.com

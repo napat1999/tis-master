@@ -1,0 +1,63 @@
+image: docker:stable 
+services:
+  - docker:dind
+
+stages:
+  - build
+  - test
+  - release
+  - deploy
+
+variables:
+  TEST_IMAGE: gitlab.jasmine.com:5001/3bbhrd/tis/test:$CI_PIPELINE_ID
+  RELEASE_IMAGE: gitlab.jasmine.com:5001/3bbhrd/tis/prod:$CI_PIPELINE_ID
+  DOCKER_HOST: tcp://localhost:2375
+  DOCKER_DRIVER: overlay2
+
+before_script:
+  - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN gitlab.jasmine.com:5001
+
+build_dev:
+  stage: build
+  script:
+    - docker build -t $TEST_IMAGE .
+    - docker push $TEST_IMAGE
+  only:
+    - master
+    
+build_test:
+  stage: test
+  script:
+    - docker pull $TEST_IMAGE
+    - docker run $TEST_IMAGE  sh -c "php -v"
+  only:
+    - master    
+    
+release:
+  stage: release
+  script:
+    - docker pull $TEST_IMAGE
+    - docker tag $TEST_IMAGE $RELEASE_IMAGE
+    - docker push $RELEASE_IMAGE
+  only:
+    - master
+    
+deploy:
+  variables: 
+    RELEASE_IMAGE: gitlab.jasmine.com:5001/3bbhrd/tis/prod:$CI_PIPELINE_ID
+
+  image:
+    name: gitlab.jasmine.com:5001/tubtim.s/maven-builder/kubectl:latest
+
+  stage: deploy
+  script:
+    - mkdir -p $HOME/.kube
+    - sed -i "s/GITLAB_IMAGE/${CI_PIPELINE_ID}/g" $CI_PROJECT_DIR/yaml/deployment.yaml
+    - kubectl config set-cluster k8s.jasmine --server=https://10.2.10.15:6443 
+    - kubectl config set-cluster k8s.jasmine --insecure-skip-tls-verify=true
+    - kubectl create secret -n gitlab-managed-apps docker-registry gitlab-registry --docker-server="$CI_REGISTRY" --docker-username="$CI_REGISTRY_USER" --docker-password="$CI_REGISTRY_PASSWORD" --docker-email="$GITLAB_USER_EMAIL" --dry-run
+    - kubectl apply -f $CI_PROJECT_DIR/yaml/deployment.yaml
+    
+  when: manual    
+  only:
+  - master

@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    k8s-app: tis-redis
+  name: tis-redis
+  namespace: jasmine-tis
+spec:
+  clusterIP:
+  externalTrafficPolicy: Cluster
+  ports:
+  - name: 
+    nodePort:
+    port: 7379
+    protocol: TCP
+    targetPort: 6379
+  selector:
+    k8s-app: tis-redis
+  sessionAffinity: None
+  type: LoadBalancer
